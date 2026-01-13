@@ -200,19 +200,26 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({ employee, onBack, onR
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                 <h3 className="font-semibold text-slate-800 mb-4 border-b border-slate-100 pb-2">Contact</h3>
                 <div className="space-y-3">
-                    <div className="text-sm">
-                        <span className="block text-slate-400 text-xs uppercase">Email</span>
-                        <span className="text-slate-700">{employee.email || `${employee.name.toLowerCase().replace(' ', '.')}@marineedge.com`}</span>
-                    </div>
-                    <div className="text-sm">
-                         <span className="block text-slate-400 text-xs uppercase">Phone</span>
-                        <span className="text-slate-700">{employee.phone || '+91 98765 43210'}</span>
-                    </div>
+                    {employee.email && (
+                        <div className="text-sm">
+                            <span className="block text-slate-400 text-xs uppercase">Email</span>
+                            <span className="text-slate-700">{employee.email}</span>
+                        </div>
+                    )}
+                    {employee.phone && (
+                        <div className="text-sm">
+                            <span className="block text-slate-400 text-xs uppercase">Phone</span>
+                            <span className="text-slate-700">{employee.phone}</span>
+                        </div>
+                    )}
                     {employee.upiId && (
                         <div className="text-sm">
                             <span className="block text-slate-400 text-xs uppercase">UPI ID</span>
                             <span className="text-slate-700">{employee.upiId}</span>
                         </div>
+                    )}
+                    {!employee.email && !employee.phone && !employee.upiId && (
+                        <p className="text-slate-400 text-sm">No contact information added.</p>
                     )}
                 </div>
             </div>

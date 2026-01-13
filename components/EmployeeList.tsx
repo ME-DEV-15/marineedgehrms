@@ -262,10 +262,10 @@ const EmployeeList: React.FC<EmployeeListProps> = ({ employees, departments, onS
         departmentAssignments,
         annualSalary: totalAnnualSalary,
         startDate: formData.startDate,
-        email: formData.email.trim(),
-        phone: formData.phone.trim(),
-        upiId: formData.upiId.trim(),
-        dob: formData.dob,
+        email: formData.email.trim() || undefined,
+        phone: formData.phone.trim() || undefined,
+        upiId: formData.upiId.trim() || undefined,
+        dob: formData.dob || undefined,
       };
 
       if (isEditMode && editingId) {

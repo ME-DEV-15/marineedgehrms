@@ -116,15 +116,10 @@ const App: React.FC = () => {
 
   // ===== CORE BUSINESS LOGIC =====
 
-  const handleAddEmployee = async (data: { name: string; department: string; monthlySalary: number }) => {
-    const annualSalary = data.monthlySalary * 12;
-
+  const handleAddEmployee = async (data: Omit<Employee, 'id' | 'payouts' | 'status'>) => {
     const emp: Employee = {
       id: Date.now().toString(),
-      name: data.name,
-      department: data.department,
-      annualSalary,
-      departmentAssignments: [{ department: data.department, annualSalary }],
+      ...data,
       payouts: [],
       status: "Active"
     };
