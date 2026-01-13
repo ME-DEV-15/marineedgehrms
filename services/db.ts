@@ -21,58 +21,61 @@ const COLL_DEPARTMENTS = "departments";
 export const dbService = {
   isConfigured: () => !!db,
 
-  // ---------------- SEEDING ----------------
+  // -------- SEEDING (Production Safe) --------
+  // CRITICAL: Only seed if ALL collections are completely empty
+  // This prevents accidental data loss on redeployments or app updates
   seedData: async () => {
     if (!db) return;
 
-    // Safety rule:
-    // - If the DB is fully empty (all core collections empty), seed everything.
-    // - If the DB is partially empty, only backfill the missing collections.
-    // This avoids the old bug where having *only* departments would prevent employees/expenses from being seeded.
     const [deptsSnap, empsSnap, expsSnap] = await Promise.all([
       getDocs(collection(db, COLL_DEPARTMENTS)),
       getDocs(collection(db, COLL_EMPLOYEES)),
       getDocs(collection(db, COLL_EXPENSES))
     ]);
 
-    const hasDepts = !deptsSnap.empty;
-    const hasEmps = !empsSnap.empty;
-    const hasExps = !expsSnap.empty;
+    const isEmpty = deptsSnap.empty && empsSnap.empty && expsSnap.empty;
 
-    // Seed / backfill Departments
-    if (!hasDepts) {
-      for (const b of INITIAL_BUDGETS) {
-        // eslint-disable-next-line no-await-in-loop
-        await addDoc(collection(db, COLL_DEPARTMENTS), {
-          name: b.department,
-          budget: b.amount
-        });
-      }
+    // Only proceed with seeding if absolutely everything is empty
+    if (!isEmpty) {
+      console.warn(
+        "[DB] Existing data detected. Skipping seed to prevent data loss. Depts:",
+        !deptsSnap.empty,
+        "| Emps:",
+        !empsSnap.empty,
+        "| Exps:",
+        !expsSnap.empty
+      );
+      return;
     }
 
-    // Seed / backfill Employees (migrated format)
-    if (!hasEmps) {
-      for (const emp of MOCK_EMPLOYEES) {
-        const { id, ...raw } = emp;
+    console.log("[DB] Database is empty. Seeding with initial data...");
 
-        // eslint-disable-next-line no-await-in-loop
-        await addDoc(collection(db, COLL_EMPLOYEES), {
-          ...raw,
-          payouts: raw.payouts || [],
-          departmentAssignments:
-            raw.departmentAssignments ||
-            [{ department: raw.department, annualSalary: raw.annualSalary }]
-        });
-      }
+    // Safe to seed now
+    for (const b of INITIAL_BUDGETS) {
+      // eslint-disable-next-line no-await-in-loop
+      await addDoc(collection(db, COLL_DEPARTMENTS), {
+        name: b.department,
+        budget: b.amount
+      });
     }
 
-    // Seed / backfill Expenses
-    if (!hasExps) {
-      for (const exp of MOCK_EXPENSES) {
-        const { id, ...raw } = exp;
-        // eslint-disable-next-line no-await-in-loop
-        await addDoc(collection(db, COLL_EXPENSES), raw);
-      }
+    for (const emp of MOCK_EMPLOYEES) {
+      const { id, ...raw } = emp;
+
+      // eslint-disable-next-line no-await-in-loop
+      await addDoc(collection(db, COLL_EMPLOYEES), {
+        ...raw,
+        payouts: raw.payouts || [],
+        departmentAssignments:
+          raw.departmentAssignments ||
+          [{ department: raw.department, annualSalary: raw.annualSalary }]
+      });
+    }
+
+    for (const exp of MOCK_EXPENSES) {
+      const { id, ...raw } = exp;
+      // eslint-disable-next-line no-await-in-loop
+      await addDoc(collection(db, COLL_EXPENSES), raw);
     }
   },
 

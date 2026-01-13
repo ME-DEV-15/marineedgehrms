@@ -60,21 +60,39 @@ const App: React.FC = () => {
       setIsLoading(true);
       try {
         if (dbService.isConfigured()) {
-          // Only seed on first load (production: when DB is empty)
-          await dbService.seedData();
+          // Seed only on absolute first load (DB truly empty)
           const [d, e, x] = await Promise.all([
             dbService.getDepartments(),
             dbService.getEmployees(),
             dbService.getExpenses()
           ]);
-          setDepartmentsDocs(d);
-          setEmployees(e);
-          setExpenses(x);
+
+          // Only seed if ALL collections are completely empty
+          if (d.length === 0 && e.length === 0 && x.length === 0) {
+            await dbService.seedData();
+            // Fetch again after seeding
+            const [d2, e2, x2] = await Promise.all([
+              dbService.getDepartments(),
+              dbService.getEmployees(),
+              dbService.getExpenses()
+            ]);
+            setDepartmentsDocs(d2);
+            setEmployees(e2);
+            setExpenses(x2);
+          } else {
+            // Data exists, use it
+            setDepartmentsDocs(d);
+            setEmployees(e);
+            setExpenses(x);
+          }
           setIsLocalMode(false);
         } else {
+          // Firebase not configured, use local storage
           loadLocal();
         }
-      } catch {
+      } catch (error) {
+        console.error('Error loading data from Firestore:', error);
+        // If Firestore fails, try to use cached local data
         loadLocal();
       }
       isLoaded.current = true;
@@ -87,14 +105,22 @@ const App: React.FC = () => {
     setIsLocalMode(true);
     const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (stored) {
-      const d = JSON.parse(stored);
-      setDepartmentsDocs(d.departmentsDocs || createMockDepts());
-      setEmployees(d.employees || MOCK_EMPLOYEES);
-      setExpenses(d.expenses || MOCK_EXPENSES);
+      try {
+        const d = JSON.parse(stored);
+        setDepartmentsDocs(d.departmentsDocs || createMockDepts());
+        setEmployees(d.employees || []);
+        setExpenses(d.expenses || []);
+      } catch (e) {
+        console.error('Error parsing cached data:', e);
+        setDepartmentsDocs(createMockDepts());
+        setEmployees([]);
+        setExpenses([]);
+      }
     } else {
+      // No cache, no mock data - start empty
       setDepartmentsDocs(createMockDepts());
-      setEmployees(MOCK_EMPLOYEES);
-      setExpenses(MOCK_EXPENSES);
+      setEmployees([]);
+      setExpenses([]);
     }
   };
 
@@ -106,7 +132,9 @@ const App: React.FC = () => {
     }));
 
   useEffect(() => {
-    if (isLocalMode && isLoaded.current) {
+    // Always keep localStorage in sync with current state
+    // This creates a fallback cache for when Firestore is unavailable
+    if (isLoaded.current && !isLocalMode) {
       localStorage.setItem(
         LOCAL_STORAGE_KEY,
         JSON.stringify({ departmentsDocs, employees, expenses })
