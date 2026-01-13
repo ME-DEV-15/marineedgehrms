@@ -174,108 +174,121 @@ const EmployeeList: React.FC<EmployeeListProps> = ({ employees, departments, onS
 
   // --- Submission ---
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const processFilesAndSubmit = async () => {
-        // Handle Docs
-        const docs: EmployeeDocument[] = [];
-        const fileEntries = [
-            { file: files.aadhar, type: 'Aadhar Card' },
-            { file: files.pan, type: 'PAN Card' },
-            { file: files.bank, type: 'Bank Details' },
-            { file: files.agreement, type: 'Employment Form' },
-            { file: files.photo, type: 'Photo' }
-        ];
+    // Validate required fields
+    if (!formData.name || !formData.role || !formData.startDate) {
+      alert('Please fill in all required fields (Name, Role, Joining Date).');
+      return;
+    }
+    
+    if (formData.allocations.some(a => !a.department || !a.monthlySalary)) {
+      alert('Please fill in all department and salary fields.');
+      return;
+    }
 
-        for (const entry of fileEntries) {
-            if (entry.file) {
-                const base64 = await new Promise<string>((resolve) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result as string);
-                    reader.readAsDataURL(entry.file!);
-                });
-                
-                docs.push({
-                    type: entry.type as any,
-                    status: 'Uploaded',
-                    lastUpdated: new Date().toISOString().split('T')[0],
-                    fileName: entry.file.name,
-                    data: base64
-                });
-            }
+    try {
+      // Handle Docs
+      const docs: EmployeeDocument[] = [];
+      const fileEntries = [
+        { file: files.aadhar, type: 'Aadhar Card' },
+        { file: files.pan, type: 'PAN Card' },
+        { file: files.bank, type: 'Bank Details' },
+        { file: files.agreement, type: 'Employment Form' },
+        { file: files.photo, type: 'Photo' }
+      ];
+
+      for (const entry of fileEntries) {
+        if (entry.file) {
+          const base64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(entry.file!);
+          });
+          
+          docs.push({
+            type: entry.type as any,
+            status: 'Uploaded',
+            lastUpdated: new Date().toISOString().split('T')[0],
+            fileName: entry.file.name,
+            data: base64
+          });
         }
+      }
 
-                // Add Drive links (one per document type) even if no file selected
-                const linkEntries = [
-                    { key: 'aadhar', type: 'Aadhar Card' },
-                    { key: 'pan', type: 'PAN Card' },
-                    { key: 'bank', type: 'Bank Details' },
-                    { key: 'agreement', type: 'Employment Form' },
-                    { key: 'photo', type: 'Photo' }
-                ] as const;
+      // Add Drive links (one per document type) even if no file selected
+      const linkEntries = [
+        { key: 'aadhar', type: 'Aadhar Card' },
+        { key: 'pan', type: 'PAN Card' },
+        { key: 'bank', type: 'Bank Details' },
+        { key: 'agreement', type: 'Employment Form' },
+        { key: 'photo', type: 'Photo' }
+      ] as const;
 
-                for (const entry of linkEntries) {
-                    const url = (driveLinks[entry.key] || '').trim();
-                    if (!url) continue;
+      for (const entry of linkEntries) {
+        const url = (driveLinks[entry.key] || '').trim();
+        if (!url) continue;
 
-                    // Avoid duplicates: if a file doc already exists for this type, attach the link to it
-                    const existing = docs.find(d => d.type === entry.type);
-                    if (existing) {
-                        (existing as any).driveUrl = url;
-                    } else {
-                        docs.push({
-                            type: entry.type,
-                            status: 'Uploaded',
-                            lastUpdated: new Date().toISOString().split('T')[0],
-                            driveUrl: url
-                        } as any);
-                    }
-                }
+        // Avoid duplicates: if a file doc already exists for this type, attach the link to it
+        const existing = docs.find(d => d.type === entry.type);
+        if (existing) {
+          (existing as any).driveUrl = url;
+        } else {
+          docs.push({
+            type: entry.type,
+            status: 'Uploaded',
+            lastUpdated: new Date().toISOString().split('T')[0],
+            driveUrl: url
+          } as any);
+        }
+      }
 
-        // Process Departments & Salary
-        const departmentAssignments: DepartmentAssignment[] = formData.allocations.map(a => ({
-            department: a.department,
-            annualSalary: (parseFloat(a.monthlySalary) || 0) * 12
+      // Process Departments & Salary
+      const departmentAssignments: DepartmentAssignment[] = formData.allocations
+        .filter(a => a.department && a.monthlySalary)
+        .map(a => ({
+          department: a.department,
+          annualSalary: (parseFloat(a.monthlySalary) || 0) * 12
         }));
 
-        const totalAnnualSalary = departmentAssignments.reduce((acc, a) => acc + a.annualSalary, 0);
-        const primaryDepartment = departmentAssignments.length > 0 ? departmentAssignments[0].department : departments[0];
+      const totalAnnualSalary = departmentAssignments.reduce((acc, a) => acc + a.annualSalary, 0);
+      const primaryDepartment = departmentAssignments.length > 0 ? departmentAssignments[0].department : departments[0];
 
-        const empData = {
-            name: formData.name,
-            role: formData.role,
-            department: primaryDepartment,
-            departmentAssignments,
-            annualSalary: totalAnnualSalary,
-            startDate: formData.startDate,
-            email: formData.email,
-            phone: formData.phone,
-            upiId: formData.upiId,
-            dob: formData.dob,
-        };
+      const empData = {
+        name: formData.name.trim(),
+        role: formData.role.trim(),
+        department: primaryDepartment,
+        departmentAssignments,
+        annualSalary: totalAnnualSalary,
+        startDate: formData.startDate,
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        upiId: formData.upiId.trim(),
+        dob: formData.dob,
+      };
 
-        if (isEditMode && editingId) {
-            // Update
-            const existingDocs = employees.find(e => e.id === editingId)?.documents || [];
-            onUpdateEmployee(editingId, {
-                ...empData,
-                // Merge new docs with old ones
-                documents: [...existingDocs, ...docs]
-            });
-        } else {
-            // Add
-            onAddEmployee({
-                ...empData,
-                status: 'Active',
-                documents: docs
-            });
-        }
-        
-        setIsModalOpen(false);
-    };
-
-    processFilesAndSubmit();
+      if (isEditMode && editingId) {
+        // Update
+        const existingDocs = employees.find(e => e.id === editingId)?.documents || [];
+        onUpdateEmployee(editingId, {
+          ...empData,
+          documents: [...existingDocs, ...docs]
+        });
+      } else {
+        // Add
+        onAddEmployee({
+          ...empData,
+          status: 'Active',
+          documents: docs
+        });
+      }
+      
+      setIsModalOpen(false);
+    } catch (err) {
+      console.error('Error submitting employee form:', err);
+      alert('Failed to save employee. Please try again.');
+    }
   };
 
   // --- Bulk Actions Handlers ---

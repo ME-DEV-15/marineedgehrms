@@ -20,6 +20,8 @@ import { auth } from "./services/firebaseConfig";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 
 const LOCAL_STORAGE_KEY = "MARINE_EDGE_DB_V1";
+const VERSION_KEY = "MARINE_EDGE_VERSION";
+const CURRENT_VERSION = "1.0.0";
 
 const App: React.FC = () => {
   const [user, setUser] = useState<any>(null);
@@ -58,6 +60,7 @@ const App: React.FC = () => {
       setIsLoading(true);
       try {
         if (dbService.isConfigured()) {
+          // Only seed on first load (production: when DB is empty)
           await dbService.seedData();
           const [d, e, x] = await Promise.all([
             dbService.getDepartments(),
@@ -303,6 +306,21 @@ const App: React.FC = () => {
         />
       )}
       {activeView === "dashboard" && <Dashboard employees={employees} expenses={expenses} budgets={budgets} />}
+      {activeView.startsWith("dept-") && (
+        <DepartmentView
+          department={activeView.replace("dept-", "")}
+          employees={employees}
+          expenses={expenses}
+          budget={budgets.find(b => b.department === activeView.replace("dept-", "")) || { department: "", amount: 0 }}
+          onAddExpense={handleAddExpense}
+          onSelectEmployee={(id) => {
+            setSelectedEmployeeId(id);
+            setPreviousView(activeView);
+            setActiveView("employeeProfile");
+          }}
+          onDeleteExpenses={handleDeleteExpenses}
+        />
+      )}
       {activeView === "expenses" && (
         <ExpensesOverview
           expenses={expenses}
@@ -329,7 +347,12 @@ const App: React.FC = () => {
 
       {activeView === "employeeProfile" && selectedEmployeeId && (
         <EmployeeProfile
-          employee={employees.find(e => e.id === selectedEmployeeId) as Employee}
+          employee={{
+            ...(employees.find(e => e.id === selectedEmployeeId) as Employee),
+            documents: (employees.find(e => e.id === selectedEmployeeId) as Employee)?.documents || [],
+            payouts: (employees.find(e => e.id === selectedEmployeeId) as Employee)?.payouts || [],
+            departmentAssignments: (employees.find(e => e.id === selectedEmployeeId) as Employee)?.departmentAssignments || []
+          }}
           onBack={() => {
             setActiveView(previousView || "employees");
             setSelectedEmployeeId(null);

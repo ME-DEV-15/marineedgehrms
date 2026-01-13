@@ -38,6 +38,10 @@ const Settings: React.FC<SettingsProps> = ({
     const [editName, setEditName] = useState('');
     const [editBudget, setEditBudget] = useState('');
 
+    // Delete Confirmation Modal
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [deptToDelete, setDeptToDelete] = useState<string | null>(null);
+
     const formatINR = (value: number) => {
         return new Intl.NumberFormat('en-IN', {
             style: 'currency',
@@ -72,6 +76,19 @@ const Settings: React.FC<SettingsProps> = ({
 
     const getEmployeeCount = (dept: string) => {
         return employees.filter(e => e.department === dept).length;
+    };
+
+    const handleDeleteClick = (dept: string) => {
+        setDeptToDelete(dept);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleConfirmDelete = () => {
+        if (deptToDelete) {
+            onDeleteDepartment(deptToDelete);
+            setIsDeleteModalOpen(false);
+            setDeptToDelete(null);
+        }
     };
 
     return (
@@ -186,7 +203,7 @@ const Settings: React.FC<SettingsProps> = ({
                                                         <Edit2 size={18} />
                                                     </button>
                                                     <button 
-                                                        onClick={() => onDeleteDepartment(dept)} 
+                                                        onClick={() => handleDeleteClick(dept)} 
                                                         className={`p-1.5 rounded transition-colors ${empCount > 0 ? 'text-slate-300 cursor-not-allowed' : 'text-red-500 hover:bg-red-50'}`}
                                                         disabled={empCount > 0}
                                                         title={empCount > 0 ? "Cannot delete department with active employees" : "Delete Department"}
@@ -211,6 +228,31 @@ const Settings: React.FC<SettingsProps> = ({
                     <p>You cannot delete a department that has active employees assigned to it. Please reassign or remove employees first.</p>
                 </div>
             </div>
+
+            {/* Delete Confirmation Modal */}
+            {isDeleteModalOpen && deptToDelete && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md animate-in fade-in zoom-in duration-200 border-t-4 border-red-500">
+                        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center rounded-t-xl">
+                            <h3 className="font-bold text-lg text-red-600 flex items-center gap-2"><AlertTriangle size={20} /> Delete Department</h3>
+                            <button onClick={() => setIsDeleteModalOpen(false)} className="text-slate-400 hover:text-slate-600">×</button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <p className="text-slate-600 text-sm">
+                                Are you sure you want to delete the <strong>"{deptToDelete}"</strong> department?
+                            </p>
+                            <p className="text-red-600 text-sm font-semibold bg-red-50 p-3 rounded-lg border border-red-100">
+                                This action cannot be undone. All associated budget records will be removed.
+                            </p>
+                            
+                            <div className="pt-4 flex gap-3">
+                                <button type="button" onClick={() => setIsDeleteModalOpen(false)} className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium bg-white">Cancel</button>
+                                <button onClick={handleConfirmDelete} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium shadow-sm">Delete Department</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
